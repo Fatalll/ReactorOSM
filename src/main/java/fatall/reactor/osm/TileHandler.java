@@ -81,25 +81,29 @@ public class TileHandler {
 
         // ignore error because of handling it in the next subscriber (disable warning)
         // save file to disk in another thread (i don't understand, why this warning here)
-        body.onErrorResume(e -> Mono.empty()).subscribe(bytes -> {
-            try {
-                Path imageLocalPath = Paths.get(OsmApplication.TILES_PATH + imagePath);
-                Files.createDirectories(imageLocalPath.getParent());
-                Files.write(imageLocalPath, bytes);
-            } catch (IOException e) {
-                Logger.getLogger("fatall.reactor.osm.TileHandler").log(Level.SEVERE, "Failed to cache image to file! " + imagePath, e);
-            }
+        body.onErrorResume(e -> Mono.empty())
+            .subscribe(bytes -> {
+                try {
+                    Path imageLocalPath = Paths.get(OsmApplication.TILES_PATH + imagePath);
+                    Files.createDirectories(imageLocalPath.getParent());
+                    Files.write(imageLocalPath, bytes);
+                } catch (IOException e) {
+                    Logger.getLogger("fatall.reactor.osm.TileHandler")
+                            .log(Level.SEVERE, "Failed to cache image to file! " + imagePath, e);
+                }
+
+                requests.remove(imagePath); // remove request from active after finished, so we can use cached version
         });
 
         Mono<ServerResponse> serverResponseMono = body
                 .flatMap(bytes -> ok().contentType(MediaType.IMAGE_PNG).body(Mono.just(bytes), byte[].class))
-                .onErrorResume(throwable -> ServerResponse.notFound().build()) // if not found, than 404 error
-                .doFinally(signalType -> requests.remove(imagePath)); // remove request from active after finished
+                .onErrorResume(throwable -> ServerResponse.notFound().build()); // if not found, than 404 error
 
         // warning, but 100% guarantee that there is no this key in the map
         if (requests.put(imagePath, serverResponseMono) != null) {
             // in case of magic
-            Logger.getLogger("fatall.reactor.osm.TileHandler").log(Level.SEVERE, "Replacing already existed request!");
+            Logger.getLogger("fatall.reactor.osm.TileHandler")
+                    .log(Level.SEVERE, "Replacing already existed request!");
         }
 
         return serverResponseMono;

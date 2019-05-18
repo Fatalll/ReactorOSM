@@ -16,7 +16,7 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 @ComponentScan("fatall.reactor.osm")
 public class WebFluxConfig {
     @Bean
-    public RouterFunction<ServerResponse> peopleRoutes(@NotNull TileHandler handler) {
+    public RouterFunction<ServerResponse> tileRoutes(@NotNull TileHandler handler) {
         return RouterFunctions.route(GET("/{z}/{x}/{y}"), handler::getTile);
     }
 }
